@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Dirt to Dollars v1.0.3 — Metal Detecting Adventures</title>
+    <title>Dirt to Dollars v1.0.4 — Metal Detecting Adventures</title>
     <style>
         :root {
             font-family: Inter, system-ui, Arial, sans-serif;
@@ -821,7 +821,7 @@
             margin-top: 10px;
         }
 
-        /* v1.0.3: responsive detector-first phone layout; gameplay logic unchanged */
+        /* v1.0.4: responsive detector-first phone layout; gameplay logic unchanged */
         @media (max-width: 900px) {
             .wrap {
                 display: flex;
@@ -832,62 +832,59 @@
             }
 
             .side {
-                display: contents
+                display: flex;
+                order: 2;
             }
 
-            .side > section:first-child {
-                order: 0
+            .wrap > .detector-primary {
+                order: 0;
             }
 
             .wrap > main {
-                order: 1
+                order: 1;
             }
 
-            .side > section:not(:first-child) {
-                order: 2
-            }
-
-            .wrap > main, .side > section {
+            .wrap > main, .wrap > .detector-primary, .side > section {
                 width: 100%;
                 min-width: 0
             }
 
-            .side > section:first-child {
+            .detector-primary {
                 padding: 12px
             }
 
-            .side > section:first-child h2 {
+            .detector-primary h2 {
                 margin: 0 0 7px;
                 font-size: 16px
             }
 
-            .side > section:first-child .id {
+            .detector-primary .id {
                 font-size: 44px;
                 margin: 3px 0
             }
 
-            .side > section:first-child .v7-readout {
+            .detector-primary .v7-readout {
                 margin: 5px 0
             }
 
-            .side > section:first-child .v7-bars {
+            .detector-primary .v7-bars {
                 max-height: 32px
             }
 
-            .side > section:first-child .signal-info {
+            .detector-primary .signal-info {
                 margin: 4px 0
             }
 
-            .side > section:first-child .status {
+            .detector-primary .status {
                 min-height: 0;
                 margin: 7px 0 0
             }
 
-            .side > section:first-child .buttons {
+            .detector-primary .buttons {
                 margin-top: 8px !important
             }
 
-            .side > section:first-child .buttons button {
+            .detector-primary .buttons button {
                 min-height: 48px;
                 font-size: 16px
             }
@@ -941,19 +938,19 @@
                 gap: 8px
             }
 
-            .side > section:first-child .id {
+            .detector-primary .id {
                 font-size: 40px
             }
 
-            .side > section:first-child .battery-hud {
+            .detector-primary .battery-hud {
                 font-size: 12px
             }
 
-            .side > section:first-child .v7-grid {
+            .detector-primary .v7-grid {
                 font-size: 11px
             }
 
-            .side > section:first-child .status {
+            .detector-primary .status {
                 font-size: 12px
             }
 
@@ -1165,7 +1162,7 @@
 </head>
 <body>
 <header>
-    <div><h1>🪙 Dirt to Dollars v1.0.3</h1><small>Metal Detecting Adventures · Three Locations</small></div>
+    <div><h1>🪙 Dirt to Dollars v1.0.4</h1><small>Metal Detecting Adventures · Three Locations</small></div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <button id="quickHelp" title="Open the complete Help Center (H)">❔ Help Center</button>
         <button id="soundToggle" title="Toggle detector audio">🔊 Sound on</button>
@@ -1223,7 +1220,7 @@
         <p class="muted">Move: WASD / Arrow keys · Camera follows you · Pinpoint: P · Dig: E or Space · Detector sweeps
             automatically. On touch devices, use the direction buttons.</p></main>
     <aside class="side">
-        <section class="panel"><h2>📡 Detector Display</h2>
+        <section class="panel detector-primary"><h2>📡 Detector Display</h2>
             <div class="battery-hud"><span>🔋 Battery <strong id="batteryValue">100%</strong></span><span id="pinTimer">Pinpoint ready · 10.0s</span>
             </div>
             <div class="bar battery-bar"><span id="batteryBar" style="width:100%"></span></div>
@@ -2625,6 +2622,46 @@
             ctx.fillText('YOU', player.x - 13, player.y - 40)
         }
 
+        // Keep one animation loop alive across Android/Chrome tab suspension and BFCache restores.
+        let animationFrameId = null;
+        let loopGeneration = 0;
+        let lastFrameWallTime = performance.now();
+        function scheduleFrame() {
+            if (document.hidden || animationFrameId !== null) return;
+            const generation = loopGeneration;
+            animationFrameId = requestAnimationFrame(now => {
+                animationFrameId = null;
+                if (generation !== loopGeneration || document.hidden) return;
+                lastFrameWallTime = performance.now();
+                loop(now);
+            });
+        }
+        function suspendGame() {
+            keys = {};
+            last = 0; // Don't charge battery or advance movement for background time.
+            loopGeneration++;
+            if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            persist();
+        }
+        function resumeGame() {
+            if (document.hidden) return;
+            keys = {};
+            last = 0;
+            // Cancel a possibly stranded frame before scheduling exactly one new one.
+            loopGeneration++;
+            if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            scheduleFrame();
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) suspendGame(); else resumeGame();
+        });
+        window.addEventListener('pagehide', suspendGame);
+        window.addEventListener('pageshow', resumeGame);
+        window.addEventListener('blur', () => { keys = {}; });
+        window.addEventListener('focus', resumeGame);
+
         function loop(now) {
             const elapsed = last ? Math.min((now - last) / 1000, .15) : 0, dt = Math.min((now - last) / 16.67 || 1, 2);
             last = now;
@@ -2673,7 +2710,7 @@
             }
             draw();
             if (!paused && !dead && Math.floor(now / 130) !== Math.floor((now - 16) / 130)) signalUpdate(now);
-            requestAnimationFrame(loop)
+            scheduleFrame()
         }
 
         window.addEventListener('keydown', e => {
@@ -2939,7 +2976,27 @@
         refreshControls();
         renderUI();
         draw();
-        requestAnimationFrame(loop)
+        scheduleFrame()
+    })();
+</script>
+<script>
+    // Mobile: place the detector panel directly above the game, not below the canvas.
+    (() => {
+        const wrap = document.querySelector('.wrap');
+        const main = wrap?.querySelector('main');
+        const side = wrap?.querySelector('.side');
+        const detector = side?.querySelector('.detector-primary');
+        if (!wrap || !main || !side || !detector) return;
+        const mobile = window.matchMedia('(max-width: 900px)');
+        function positionDetector() {
+            if (mobile.matches) {
+                if (detector.parentElement !== wrap) wrap.insertBefore(detector, main);
+            } else if (detector.parentElement !== side) {
+                side.insertBefore(detector, side.firstChild);
+            }
+        }
+        positionDetector();
+        mobile.addEventListener('change', positionDetector);
     })();
 </script>
 <div class="v10-toolbar">

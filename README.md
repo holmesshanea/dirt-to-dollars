@@ -1,6 +1,6 @@
 # 🪙 Dirt to Dollars — Metal Detecting Adventures
 
-**Version 1.0.3** · Free, browser-based metal detecting game
+**Version 1.0.4** · Free, browser-based metal detecting game
 
 🎮 **[Play Dirt to Dollars](https://holmesshanea.github.io/dirt-to-dollars/)**
 
@@ -71,6 +71,8 @@ This is a static HTML game. To publish it using GitHub Pages:
 No backend, database, or build process is required.
 
 ## Version
+
+**v1.0.4** — Mobile resume reliability improvements and detector controls positioned directly above the playing field on phones.
 
 **v1.0.3** — Responsive mobile layout with detector information and Pinpoint/Dig controls prioritized above the playing field on small screens.
 
